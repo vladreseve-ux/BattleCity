@@ -424,7 +424,8 @@ public static class Program
     public static void Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        Console.CursorVisible = false;
+        try { Console.Title = "Battle City — Console Arcade"; } catch { }
+        try { Console.CursorVisible = false; } catch { }
 
         IStateStore store = new JsonStateStore();
         GameEngine game;
@@ -440,7 +441,7 @@ public static class Program
             Console.ResetColor();
             Console.WriteLine("Найдено сохранение. [1] Продолжить  [2] Новая игра");
             Console.Write("Выбор: ");
-            var choice = Console.ReadKey(true).KeyChar;
+            var choice = !Console.IsInputRedirected ? Console.ReadKey(true).KeyChar : '2';
             game = (choice == '1') ? store.Load(SaveFile) : new GameEngine();
         }
         else
@@ -449,7 +450,7 @@ public static class Program
         }
 
         RunGameLoop(game, store);
-        Console.CursorVisible = true;
+        try { Console.CursorVisible = true; } catch { }
     }
 
     /// <summary>Основной игровой цикл аркады (Game Loop).</summary>
@@ -462,7 +463,7 @@ public static class Program
         {
             // 1. Неблокирующий ввод с клавиатуры
             var player = game.PlayerTank;
-            while (Console.KeyAvailable)
+            while (!Console.IsInputRedirected && Console.KeyAvailable)
             {
                 var key = Console.ReadKey(true).Key;
                 switch (key)
@@ -535,7 +536,7 @@ public static class Program
     /// <summary>Отрисовка карты и интерфейса в консоли без мерцания.</summary>
     public static void Render(GameEngine game)
     {
-        Console.SetCursorPosition(0, 0);
+        try { Console.SetCursorPosition(0, 0); } catch { }
 
         // Верхняя панель
         var player = game.PlayerTank;
