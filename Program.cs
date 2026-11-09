@@ -2,68 +2,49 @@ using System.Text.Json;
 
 namespace BattleCity;
 
-/// <summary>
-/// Направление движения на сетке.
-/// </summary>
+/// <summary>Направление движения: вверх, вниз, влево, вправо.</summary>
 public enum Direction
 {
-    /// <summary>Вверх.</summary>
+    /// <summary>Вверх (Y уменьшается).</summary>
     Up,
-    /// <summary>Вниз.</summary>
+    /// <summary>Вниз (Y увеличивается).</summary>
     Down,
-    /// <summary>Влево.</summary>
+    /// <summary>Влево (X уменьшается).</summary>
     Left,
-    /// <summary>Вправо.</summary>
+    /// <summary>Вправо (X увеличивается).</summary>
     Right
 }
 
-/// <summary>
-/// Объект, занимающий координаты на игровой сетке.
-/// </summary>
+/// <summary>Объект с координатами на сетке 10x10.</summary>
 public interface IGridEntity
 {
-    /// <summary>Горизонтальная координата (0..MapSize-1).</summary>
+    /// <summary>Координата X (по горизонтали, 0..9).</summary>
     int X { get; }
-    /// <summary>Вертикальная координата (0..MapSize-1).</summary>
+    /// <summary>Координата Y (по вертикали, 0..9).</summary>
     int Y { get; }
 }
 
-/// <summary>
-/// Объект, которому может быть нанесён урон.
-/// </summary>
+/// <summary>Объект, который может получать урон (стена, база, танк).</summary>
 public interface IDamageable
 {
-    /// <summary>Наносит объекту урон.</summary>
-    /// <param name="amount">Количество единиц урона.</param>
+    /// <summary>Нанести объекту урон.</summary>
     void TakeDamage(int amount = 1);
 }
 
-/// <summary>
-/// Абстракция сохранения и загрузки состояния игры.
-/// </summary>
+/// <summary>Абстракция сохранения и загрузки игры (принцип инверсии зависимостей DIP).</summary>
 public interface IStateStore
 {
-    /// <summary>Сохраняет игровой движок в указанный файл.</summary>
-    /// <param name="game">Экземпляр игрового движка.</param>
-    /// <param name="path">Путь к файлу.</param>
+    /// <summary>Сохранить состояние игры в файл.</summary>
     void Save(GameEngine game, string path);
 
-    /// <summary>Загружает игровой движок из файла.</summary>
-    /// <param name="path">Путь к файлу.</param>
-    /// <returns>Восстановленный игровой движок.</returns>
+    /// <summary>Загрузить состояние игры из файла.</summary>
     GameEngine Load(string path);
 }
 
-/// <summary>
-/// Стена карты: кирпичная разрушается при попадании, бетонная является неразрушимой.
-/// </summary>
+/// <summary>Стена: кирпичная разрушается с 1 попадания, бетонная неразрушима.</summary>
 public sealed class Wall : IGridEntity, IDamageable
 {
-    /// <summary>Создаёт стену с заданными координатами, признаком бетона и здоровьем.</summary>
-    /// <param name="x">Координата X.</param>
-    /// <param name="y">Координата Y.</param>
-    /// <param name="isConcrete">Флаг бетонной неразрушимой стены.</param>
-    /// <param name="hp">Запас прочности.</param>
+    /// <summary>Создать стену.</summary>
     public Wall(int x, int y, bool isConcrete = false, int hp = 1)
     {
         X = x;
@@ -74,35 +55,25 @@ public sealed class Wall : IGridEntity, IDamageable
 
     /// <inheritdoc/>
     public int X { get; set; }
-
     /// <inheritdoc/>
     public int Y { get; set; }
-
-    /// <summary>Признак неразрушаемой бетонной стены.</summary>
+    /// <summary>Является ли стена неразрушимой бетонной.</summary>
     public bool IsConcrete { get; set; }
-
     /// <summary>Текущая прочность стены.</summary>
     public int Hp { get; set; }
 
     /// <inheritdoc/>
     public void TakeDamage(int amount = 1)
     {
-        if (!IsConcrete)
-        {
-            Hp = Math.Max(0, Hp - amount);
-        }
+        // Бетонная стена не получает урона
+        if (!IsConcrete) Hp = Math.Max(0, Hp - amount);
     }
 }
 
-/// <summary>
-/// База (штаб) игрока. Попадание вражеского снаряда приводит к поражению.
-/// </summary>
+/// <summary>Штаб (база) игрока. Попадание по базе завершает игру.</summary>
 public sealed class Base : IGridEntity, IDamageable
 {
-    /// <summary>Создаёт базу в указанных координатах.</summary>
-    /// <param name="x">Координата X.</param>
-    /// <param name="y">Координата Y.</param>
-    /// <param name="hp">Запас прочности базы.</param>
+    /// <summary>Создать штаб.</summary>
     public Base(int x, int y, int hp = 1)
     {
         X = x;
@@ -112,31 +83,19 @@ public sealed class Base : IGridEntity, IDamageable
 
     /// <inheritdoc/>
     public int X { get; set; }
-
     /// <inheritdoc/>
     public int Y { get; set; }
-
-    /// <summary>Прочность базы.</summary>
+    /// <summary>Прочность штаба.</summary>
     public int Hp { get; set; }
 
     /// <inheritdoc/>
-    public void TakeDamage(int amount = 1)
-    {
-        Hp = Math.Max(0, Hp - amount);
-    }
+    public void TakeDamage(int amount = 1) => Hp = Math.Max(0, Hp - amount);
 }
 
-/// <summary>
-/// Танк (игрок или противник) со здоровьем, направлением и возможностью стрельбы.
-/// </summary>
+/// <summary>Танк (игрок или противник).</summary>
 public sealed class Tank : IGridEntity, IDamageable
 {
-    /// <summary>Создаёт танк с начальными параметрами.</summary>
-    /// <param name="x">Координата X.</param>
-    /// <param name="y">Координата Y.</param>
-    /// <param name="direction">Начальное направление.</param>
-    /// <param name="team">Команда ("player" или "enemy").</param>
-    /// <param name="hp">Запас здоровья.</param>
+    /// <summary>Создать танк.</summary>
     public Tank(int x, int y, Direction direction, string team, int hp = 2)
     {
         X = x;
@@ -148,58 +107,41 @@ public sealed class Tank : IGridEntity, IDamageable
 
     /// <inheritdoc/>
     public int X { get; set; }
-
     /// <inheritdoc/>
     public int Y { get; set; }
-
-    /// <summary>Текущее направление танка.</summary>
+    /// <summary>Куда направлено дуло танка.</summary>
     public Direction Direction { get; set; }
-
-    /// <summary>Команда танка ("player" или "enemy").</summary>
+    /// <summary>Команда ("player" или "enemy").</summary>
     public string Team { get; set; }
-
-    /// <summary>Текущее здоровье танка.</summary>
+    /// <summary>Очки здоровья (жизни).</summary>
     public int Hp { get; set; }
 
     /// <inheritdoc/>
-    public void TakeDamage(int amount = 1)
-    {
-        Hp = Math.Max(0, Hp - amount);
-    }
+    public void TakeDamage(int amount = 1) => Hp = Math.Max(0, Hp - amount);
 
-    /// <summary>
-    /// Поворачивает танк в указанном направлении и пробует переместиться на 1 клетку.
-    /// </summary>
-    /// <param name="direction">Новое направление.</param>
-    /// <param name="game">Игровой движок для проверки препятствий.</param>
-    /// <returns>True, если перемещение успешно; иначе false.</returns>
+    /// <summary>Повернуться и сделать шаг, если клетка свободна.</summary>
     public bool Move(Direction direction, GameEngine game)
     {
         Direction = direction;
         var (dx, dy) = Vector(direction);
         var nx = X + dx;
         var ny = Y + dy;
+
         if (game.IsBlocked(nx, ny, this)) return false;
+
         X = nx;
         Y = ny;
         return true;
     }
 
-    /// <summary>
-    /// Создаёт снаряд в соседней клетке по направлению ствола танка.
-    /// </summary>
-    /// <returns>Экземпляр снаряда.</returns>
+    /// <summary>Выпустить снаряд из ствола танка.</summary>
     public Projectile Shoot()
     {
         var (dx, dy) = Vector(Direction);
         return new Projectile(X + dx, Y + dy, Direction, Team);
     }
 
-    /// <summary>
-    /// Возвращает смещение по координатам для заданного направления.
-    /// </summary>
-    /// <param name="direction">Направление.</param>
-    /// <returns>Кортеж смещения (dX, dY).</returns>
+    /// <summary>Смещение (dx, dy) по направлению.</summary>
     public static (int X, int Y) Vector(Direction direction) => direction switch
     {
         Direction.Up => (0, -1),
@@ -209,16 +151,10 @@ public sealed class Tank : IGridEntity, IDamageable
     };
 }
 
-/// <summary>
-/// Снаряд, летящий по прямой линии до столкновения.
-/// </summary>
+/// <summary>Снаряд, летящий по прямой линии.</summary>
 public sealed class Projectile : IGridEntity
 {
-    /// <summary>Создаёт снаряд с заданными параметрами.</summary>
-    /// <param name="x">Координата X.</param>
-    /// <param name="y">Координата Y.</param>
-    /// <param name="direction">Направление полёта.</param>
-    /// <param name="team">Команда, выпустившая снаряд.</param>
+    /// <summary>Создать снаряд.</summary>
     public Projectile(int x, int y, Direction direction, string team)
     {
         X = x;
@@ -229,53 +165,36 @@ public sealed class Projectile : IGridEntity
 
     /// <inheritdoc/>
     public int X { get; set; }
-
     /// <inheritdoc/>
     public int Y { get; set; }
-
     /// <summary>Направление полёта.</summary>
     public Direction Direction { get; set; }
-
-    /// <summary>Команда, выпустившая снаряд.</summary>
+    /// <summary>Кто выстрелил ("player" или "enemy").</summary>
     public string Team { get; set; }
 }
 
-/// <summary>
-/// Игровой движок: карта, правила столкновений, перемещение снарядов и логика врагов.
-/// </summary>
+/// <summary>Движок игры: правила, столкновения, такты симуляции и ИИ врагов.</summary>
 public sealed class GameEngine
 {
-    /// <summary>Размер квадратной карты (10 клеток).</summary>
+    /// <summary>Размер квадратной карты (10х10).</summary>
     public const int MapSize = 10;
-
     private readonly Random _random = new();
 
-    /// <summary>Создаёт игровое поле со стенами, базой и танками по умолчанию.</summary>
+    /// <summary>Инициализация стандартной расстановки уровня.</summary>
     public GameEngine()
     {
+        Base = new Base(4, 9);
         Walls =
         [
-            // Защитный периметр вокруг базы (база на 4, 9)
-            new Wall(3, 9, false),
-            new Wall(3, 8, false),
-            new Wall(4, 8, false),
-            new Wall(5, 8, false),
-            new Wall(5, 9, false),
-
-            // Кирпичные укрытия на карте
-            new Wall(1, 4, false),
-            new Wall(2, 4, false),
-            new Wall(7, 4, false),
-            new Wall(8, 4, false),
-            new Wall(3, 2, false),
-            new Wall(6, 2, false),
-
-            // Бетонные неразрушаемые колонны по центру
-            new Wall(4, 5, true, 999),
-            new Wall(5, 5, true, 999)
+            // Кирпичный периметр вокруг штаба
+            new Wall(3, 9), new Wall(3, 8), new Wall(4, 8), new Wall(5, 8), new Wall(5, 9),
+            // Укрытия на карте
+            new Wall(1, 4), new Wall(2, 4), new Wall(7, 4), new Wall(8, 4),
+            new Wall(3, 2), new Wall(6, 2),
+            // Неразрушимые бетонные колонны в центре
+            new Wall(4, 5, isConcrete: true, hp: 999),
+            new Wall(5, 5, isConcrete: true, hp: 999)
         ];
-
-        Base = new Base(4, 9);
         Tanks =
         [
             new Tank(1, 8, Direction.Up, "player", hp: 3),
@@ -289,43 +208,29 @@ public sealed class GameEngine
         LastMessage = "Игра началась! Защитите штаб!";
     }
 
-    /// <summary>Список стен на карте.</summary>
+    /// <summary>Стены на карте.</summary>
     public List<Wall> Walls { get; set; } = [];
-
-    /// <summary>База (штаб) игрока.</summary>
+    /// <summary>Штаб игрока.</summary>
     public Base Base { get; set; } = new(4, 9);
-
-    /// <summary>Список танков (игрок и враги).</summary>
+    /// <summary>Танки на карте.</summary>
     public List<Tank> Tanks { get; set; } = [];
-
-    /// <summary>Список активных снарядов в полёте.</summary>
+    /// <summary>Летящие снаряды.</summary>
     public List<Projectile> Projectiles { get; set; } = [];
-
-    /// <summary>Текущий счёт игрока.</summary>
+    /// <summary>Набранные очки.</summary>
     public int Score { get; set; }
-
-    /// <summary>Признак окончания игры.</summary>
+    /// <summary>Флаг завершения игры.</summary>
     public bool GameOver { get; set; }
-
-    /// <summary>Признак победы игрока.</summary>
+    /// <summary>Флаг победы игрока.</summary>
     public bool Victory { get; set; }
-
-    /// <summary>Последнее информационное сообщение движка.</summary>
+    /// <summary>Информационное сообщение последнего события.</summary>
     public string LastMessage { get; set; } = string.Empty;
 
-    /// <summary>Возвращает танк игрока или null, если он уничтожен.</summary>
+    /// <summary>Танк игрока (null, если уничтожен).</summary>
     public Tank? PlayerTank => Tanks.FirstOrDefault(t => t.Team == "player" && t.Hp > 0);
-
-    /// <summary>Количество живых вражеских танков.</summary>
+    /// <summary>Количество живых противников.</summary>
     public int AliveEnemiesCount => Tanks.Count(t => t.Team == "enemy" && t.Hp > 0);
 
-    /// <summary>
-    /// Проверяет, заблокирована ли клетка для перемещения танка.
-    /// </summary>
-    /// <param name="x">Координата X.</param>
-    /// <param name="y">Координата Y.</param>
-    /// <param name="except">Танк, перемещение которого проверяется (игнорирует сам себя).</param>
-    /// <returns>True, если клетка заблокирована; иначе false.</returns>
+    /// <summary>Проверка, занята ли клетка препятствием или танком.</summary>
     public bool IsBlocked(int x, int y, Tank? except = null)
     {
         if (x < 0 || y < 0 || x >= MapSize || y >= MapSize) return true;
@@ -335,67 +240,46 @@ public sealed class GameEngine
         return false;
     }
 
-    /// <summary>
-    /// Выпускает снаряд из указанного танка, если это разрешено правилами.
-    /// </summary>
-    /// <param name="tank">Стреляющий танк.</param>
-    /// <returns>True, если выстрел произведён; иначе false.</returns>
+    /// <summary>Выстрел орудия танка.</summary>
     public bool Fire(Tank tank)
     {
         if (GameOver || tank.Hp <= 0) return false;
-        // Ограничение: максимум 2 снаряда от одной команды одновременно в воздухе
-        var activeShotsFromTeam = Projectiles.Count(p => p.Team == tank.Team);
-        if (activeShotsFromTeam >= 2) return false;
+        if (Projectiles.Count(p => p.Team == tank.Team) >= 2) return false;
 
         var shot = tank.Shoot();
-        // Если выстрел прямо в край карты — снаряд сразу поглощается
-        if (shot.X < 0 || shot.Y < 0 || shot.X >= MapSize || shot.Y >= MapSize)
-        {
-            return false;
-        }
+        if (shot.X < 0 || shot.Y < 0 || shot.X >= MapSize || shot.Y >= MapSize) return false;
 
         Projectiles.Add(shot);
-        if (tank.Team == "player")
-        {
-            LastMessage = "Игрок выстрелил!";
-        }
+        if (tank.Team == "player") LastMessage = "Игрок выстрелил!";
         return true;
     }
 
-    /// <summary>
-    /// Выполняет один такт симуляции: полёт снарядов, коллизии, разрушение стен и базы.
-    /// </summary>
+    /// <summary>Один такт физики мира: перемещение снарядов и проверка попаданий.</summary>
     public void Step()
     {
         if (GameOver) return;
 
-        var remaining = new List<Projectile>();
+        var activeShots = new List<Projectile>();
         foreach (var shot in Projectiles)
         {
             var (dx, dy) = Tank.Vector(shot.Direction);
             shot.X += dx;
             shot.Y += dy;
 
-            // Вылет за границы карты
-            if (shot.X < 0 || shot.Y < 0 || shot.X >= MapSize || shot.Y >= MapSize)
-            {
-                continue;
-            }
+            // Вылет за пределы поля
+            if (shot.X < 0 || shot.Y < 0 || shot.X >= MapSize || shot.Y >= MapSize) continue;
 
-            // Попадание в стену
+            // Столкновение со стеной
             var wall = Walls.FirstOrDefault(w => w.X == shot.X && w.Y == shot.Y);
             if (wall is not null)
             {
                 wall.TakeDamage(1);
-                if (wall.Hp <= 0)
-                {
-                    Walls.Remove(wall);
-                    LastMessage = wall.IsConcrete ? "Снаряд отрикошетил от бетона." : "Кирпичная стена разрушена!";
-                }
+                if (wall.Hp <= 0) Walls.Remove(wall);
+                LastMessage = wall.IsConcrete ? "Снаряд отрикошетил от бетона." : "Кирпичная стена разрушена!";
                 continue;
             }
 
-            // Попадание в базу
+            // Попадание в штаб
             if (Base.Hp > 0 && Base.X == shot.X && Base.Y == shot.Y)
             {
                 Base.TakeDamage(1);
@@ -405,7 +289,7 @@ public sealed class GameEngine
                 continue;
             }
 
-            // Попадание в танк противоположной команды
+            // Попадание во вражеский или союзный танк
             var target = Tanks.FirstOrDefault(t => t.Team != shot.Team && t.Hp > 0 && t.X == shot.X && t.Y == shot.Y);
             if (target is not null)
             {
@@ -430,66 +314,39 @@ public sealed class GameEngine
                         LastMessage = "Ваш танк уничтожен! Поражение.";
                     }
                 }
-                else
-                {
-                    LastMessage = target.Team == "enemy" ? "Попадание во врага!" : "Ваш танк подбит!";
-                }
                 continue;
             }
 
-            remaining.Add(shot);
+            activeShots.Add(shot);
         }
 
-        Projectiles = remaining;
+        Projectiles = activeShots;
     }
 
-    /// <summary>
-    /// Автоматическое действие вражеских танков (искусственный интеллект).
-    /// </summary>
+    /// <summary>Действия искусственного интеллекта врагов (шаг и выстрел).</summary>
     public void UpdateEnemies()
     {
         if (GameOver) return;
 
+        var directions = new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
         foreach (var enemy in Tanks.Where(t => t.Team == "enemy" && t.Hp > 0))
         {
-            // С вероятностью 25% стреляет
-            if (_random.Next(100) < 25)
-            {
-                Fire(enemy);
-            }
+            // Вероятность выстрела 25%
+            if (_random.Next(100) < 25) Fire(enemy);
 
-            // Выбор направления: 60% продолжать или повернуть к базе/игроку, 40% случайный поворот
-            var directions = new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
-            Direction preferred;
+            // 60% выбор пути в сторону штаба/игрока, 40% случайный поворот
+            var preferred = (_random.Next(100) < 60)
+                ? (enemy.Y < Base.Y ? Direction.Down : (enemy.X < Base.X ? Direction.Right : Direction.Left))
+                : directions[_random.Next(directions.Length)];
 
-            if (_random.Next(100) < 60)
-            {
-                // Приоритет — движение вниз (к базе) или к игроку
-                var targetY = Base.Y;
-                var targetX = Base.X;
-                if (enemy.Y < targetY && _random.Next(2) == 0) preferred = Direction.Down;
-                else if (enemy.X < targetX) preferred = Direction.Right;
-                else if (enemy.X > targetX) preferred = Direction.Left;
-                else preferred = Direction.Down;
-            }
-            else
-            {
-                preferred = directions[_random.Next(directions.Length)];
-            }
-
-            // Пробуем шагнуть в выбранном направлении, если заблокировано — пробуем случайное
             if (!enemy.Move(preferred, this))
             {
-                var alt = directions[_random.Next(directions.Length)];
-                enemy.Move(alt, this);
+                enemy.Move(directions[_random.Next(directions.Length)], this);
             }
         }
     }
 
-    /// <summary>
-    /// Создаёт DTO состояния для последующей сериализации в JSON.
-    /// </summary>
-    /// <returns>Объект GameState.</returns>
+    /// <summary>Преобразовать текущее состояние в DTO для сериализации JSON.</summary>
     public GameState ToState() => new()
     {
         Walls = Walls,
@@ -502,11 +359,7 @@ public sealed class GameEngine
         LastMessage = LastMessage
     };
 
-    /// <summary>
-    /// Восстанавливает игровой движок из сохранённого состояния DTO.
-    /// </summary>
-    /// <param name="state">Сохранённое состояние.</param>
-    /// <returns>Восстановленный игровой движок.</returns>
+    /// <summary>Восстановить движок из десериализованного объекта состояния.</summary>
     public static GameEngine FromState(GameState state) => new()
     {
         Walls = state.Walls ?? [],
@@ -520,76 +373,54 @@ public sealed class GameEngine
     };
 }
 
-/// <summary>
-/// DTO полного состояния игры для JSON-сериализации.
-/// </summary>
+/// <summary>DTO (Data Transfer Object) состояния игры для сериализации.</summary>
 public sealed class GameState
 {
-    /// <summary>Сохранённые стены.</summary>
+    /// <summary>Стены.</summary>
     public List<Wall> Walls { get; set; } = [];
-
-    /// <summary>Сохранённая база.</summary>
+    /// <summary>Штаб.</summary>
     public Base Base { get; set; } = new(4, 9);
-
-    /// <summary>Сохранённые танки.</summary>
+    /// <summary>Танки.</summary>
     public List<Tank> Tanks { get; set; } = [];
-
-    /// <summary>Сохранённые снаряды.</summary>
+    /// <summary>Снаряды.</summary>
     public List<Projectile> Projectiles { get; set; } = [];
-
-    /// <summary>Сохранённый счёт игрока.</summary>
+    /// <summary>Очки.</summary>
     public int Score { get; set; }
-
-    /// <summary>Признак завершения игры.</summary>
+    /// <summary>Флаг конца игры.</summary>
     public bool GameOver { get; set; }
-
-    /// <summary>Признак победы.</summary>
+    /// <summary>Флаг победы.</summary>
     public bool Victory { get; set; }
-
-    /// <summary>Текст последнего сообщения.</summary>
+    /// <summary>Сообщение.</summary>
     public string LastMessage { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// Реализация хранилища состояния в формате JSON.
-/// </summary>
+/// <summary>Хранилище состояния в JSON-файле.</summary>
 public sealed class JsonStateStore : IStateStore
 {
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <inheritdoc/>
     public void Save(GameEngine game, string path)
     {
-        var json = JsonSerializer.Serialize(game.ToState(), Options);
+        var json = JsonSerializer.Serialize(game.ToState(), JsonOptions);
         File.WriteAllText(path, json);
     }
 
     /// <inheritdoc/>
     public GameEngine Load(string path)
     {
-        if (!File.Exists(path))
-        {
-            throw new FileNotFoundException($"Файл сохранения не найден: {path}");
-        }
-
-        var json = File.ReadAllText(path);
-        var state = JsonSerializer.Deserialize<GameState>(json)
-            ?? throw new InvalidDataException("Файл сохранения повреждён.");
-        return GameEngine.FromState(state);
+        if (!File.Exists(path)) throw new FileNotFoundException("Файл сохранения не найден", path);
+        var state = JsonSerializer.Deserialize<GameState>(File.ReadAllText(path));
+        return GameEngine.FromState(state ?? throw new InvalidDataException("Файл сохранения повреждён."));
     }
 }
 
-/// <summary>
-/// Консольный интерфейс: отрисовка карты в псевдографике, игровой цикл и управление.
-/// </summary>
+/// <summary>Интерфейс пользователя: Game Loop, клавиатурный ввод и консольная графика.</summary>
 public static class Program
 {
-    private const string SavePath = "save.json";
+    private const string SaveFile = "save.json";
 
-    /// <summary>Точка входа в игру.</summary>
+    /// <summary>Точка входа.</summary>
     public static void Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -598,7 +429,8 @@ public static class Program
         IStateStore store = new JsonStateStore();
         GameEngine game;
 
-        if (File.Exists(SavePath))
+        // Если есть сохранение — предлагаем загрузить
+        if (File.Exists(SaveFile))
         {
             Console.Clear();
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -606,27 +438,10 @@ public static class Program
             Console.WriteLine("       BATTLE CITY — C# CONSOLE         ");
             Console.WriteLine("========================================");
             Console.ResetColor();
-            Console.WriteLine("Обнаружено сохранение игры.");
-            Console.WriteLine("  [1] Загрузить сохранённую игру");
-            Console.WriteLine("  [2] Начать новую игру");
-            Console.Write("Ваш выбор: ");
-
-            var key = Console.ReadKey(true).KeyChar;
-            if (key == '1')
-            {
-                try
-                {
-                    game = store.Load(SavePath);
-                }
-                catch
-                {
-                    game = new GameEngine();
-                }
-            }
-            else
-            {
-                game = new GameEngine();
-            }
+            Console.WriteLine("Найдено сохранение. [1] Продолжить  [2] Новая игра");
+            Console.Write("Выбор: ");
+            var choice = Console.ReadKey(true).KeyChar;
+            game = (choice == '1') ? store.Load(SaveFile) : new GameEngine();
         }
         else
         {
@@ -634,253 +449,188 @@ public static class Program
         }
 
         RunGameLoop(game, store);
-
         Console.CursorVisible = true;
     }
 
-    /// <summary>
-    /// Основной цикл интерактивной аркадной игры в реальном времени.
-    /// </summary>
+    /// <summary>Основной игровой цикл аркады (Game Loop).</summary>
     public static void RunGameLoop(GameEngine game, IStateStore store)
     {
         Console.Clear();
-        var enemyTickCounter = 0;
-        var running = true;
+        var enemyTimer = 0;
 
-        while (running)
+        while (true)
         {
-            // Обработка пользовательского ввода
+            // 1. Неблокирующий ввод с клавиатуры
             var player = game.PlayerTank;
             while (Console.KeyAvailable)
             {
-                var keyInfo = Console.ReadKey(true);
-                switch (keyInfo.Key)
+                var key = Console.ReadKey(true).Key;
+                switch (key)
                 {
-                    case ConsoleKey.UpArrow or ConsoleKey.W when player is not null:
+                    case ConsoleKey.W or ConsoleKey.UpArrow when player is not null:
                         player.Move(Direction.Up, game);
                         break;
-                    case ConsoleKey.DownArrow or ConsoleKey.S when player is not null:
+                    case ConsoleKey.S or ConsoleKey.DownArrow when player is not null:
                         player.Move(Direction.Down, game);
                         break;
-                    case ConsoleKey.LeftArrow or ConsoleKey.A when player is not null:
+                    case ConsoleKey.A or ConsoleKey.LeftArrow when player is not null:
                         player.Move(Direction.Left, game);
                         break;
-                    case ConsoleKey.RightArrow or ConsoleKey.D when player is not null:
+                    case ConsoleKey.D or ConsoleKey.RightArrow when player is not null:
                         player.Move(Direction.Right, game);
                         break;
                     case ConsoleKey.Spacebar or ConsoleKey.F when player is not null:
                         game.Fire(player);
                         break;
                     case ConsoleKey.F5:
-                        store.Save(game, SavePath);
-                        game.LastMessage = "Игра сохранена в " + SavePath;
+                        store.Save(game, SaveFile);
+                        game.LastMessage = "Игра сохранена в " + SaveFile;
                         break;
                     case ConsoleKey.R:
                         game = new GameEngine();
                         game.LastMessage = "Новая игра начата!";
                         break;
-                    case ConsoleKey.Escape or ConsoleKey.Q:
-                        store.Save(game, SavePath);
+                    case ConsoleKey.Q or ConsoleKey.Escape:
+                        store.Save(game, SaveFile);
                         Console.Clear();
-                        Console.ResetColor();
-                        Console.WriteLine($"Состояние сохранено в {SavePath}. До встречи!");
+                        Console.WriteLine($"Игра сохранена в {SaveFile}. До свидания!");
                         return;
                 }
             }
 
-            // Обновление состояния снарядов
+            // 2. Движение снарядов
             game.Step();
 
-            // Действия врагов (каждые 3 такта)
-            enemyTickCounter++;
-            if (enemyTickCounter >= 3)
+            // 3. Шаг врагов каждые 3 такта
+            if (++enemyTimer >= 3)
             {
-                enemyTickCounter = 0;
+                enemyTimer = 0;
                 game.UpdateEnemies();
             }
 
-            // Отрисовка поля и интерфейса
+            // 4. Отрисовка кадра
             Render(game);
 
+            // 5. Обработка окончания игры
             if (game.GameOver)
             {
-                Console.WriteLine();
-                if (game.Victory)
-                {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("╔═══════════════════════════════════════════════╗");
-                    Console.WriteLine("║            ПОЗДРАВЛЯЕМ! ПОБЕДА!               ║");
-                    Console.WriteLine("╚═══════════════════════════════════════════════╝");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("╔═══════════════════════════════════════════════╗");
-                    Console.WriteLine("║            ИГРА ОКОНЧЕНА (GAME OVER)          ║");
-                    Console.WriteLine("╚═══════════════════════════════════════════════╝");
-                }
+                Console.ForegroundColor = game.Victory ? ConsoleColor.Green : ConsoleColor.Red;
+                Console.WriteLine(game.Victory ? "\n>>> ПОБЕДА! ВСЕ ВРАГИ УНИЧТОЖЕНЫ! <<<" : "\n>>> GAME OVER! ВЫ ПРОИГРАЛИ! <<<");
                 Console.ResetColor();
-                Console.WriteLine("Нажмите [R] для перезапуска или [Q] для выхода.");
+                Console.WriteLine("Нажмите [R] — перезапуск, [Q] — выход.");
 
                 while (true)
                 {
                     var exitKey = Console.ReadKey(true).Key;
-                    if (exitKey == ConsoleKey.R)
-                    {
-                        game = new GameEngine();
-                        Console.Clear();
-                        break;
-                    }
-                    if (exitKey is ConsoleKey.Q or ConsoleKey.Escape)
-                    {
-                        return;
-                    }
+                    if (exitKey == ConsoleKey.R) { game = new GameEngine(); Console.Clear(); break; }
+                    if (exitKey is ConsoleKey.Q or ConsoleKey.Escape) return;
                 }
             }
 
+            // 6. Задержка между кадрами (120 мс ~ 8 кадров/сек)
             Thread.Sleep(120);
         }
     }
 
-    /// <summary>
-    /// Отрисовывает игровое поле 10x10 в консоли псевдографикой с цветовым оформлением.
-    /// </summary>
+    /// <summary>Отрисовка карты и интерфейса в консоли без мерцания.</summary>
     public static void Render(GameEngine game)
     {
         Console.SetCursorPosition(0, 0);
 
+        // Верхняя панель
+        var player = game.PlayerTank;
+        var hp = player is not null ? new string('♥', player.Hp) : "DEAD";
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("╔══════════════════════════════════════════════╗");
         Console.WriteLine("║           BATTLE CITY — CONSOLE ARCADE       ║");
         Console.WriteLine("╚══════════════════════════════════════════════╝");
         Console.ResetColor();
 
-        var player = game.PlayerTank;
-        var hpText = player is not null ? new string('♥', player.Hp) : "МЁРТВ";
-
-        Console.ForegroundColor = ConsoleColor.White;
         Console.Write("  Счёт: ");
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.Write($"{game.Score,-6}");
-        Console.ForegroundColor = ConsoleColor.White;
+        Console.ResetColor();
         Console.Write(" Жизни: ");
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.Write($"{hpText,-6}");
-        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write($"{hp,-6}");
+        Console.ResetColor();
         Console.Write(" Врагов: ");
         Console.ForegroundColor = ConsoleColor.Magenta;
         Console.WriteLine($"{game.AliveEnemiesCount,-2}");
         Console.ResetColor();
 
-        // Верхняя граница сетки
+        // Сетка 10x10
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine("  ┌────────────────────────────────────────┐");
-
         for (var y = 0; y < GameEngine.MapSize; y++)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.Write("  │");
-
             for (var x = 0; x < GameEngine.MapSize; x++)
             {
-                // Проверяем снаряд
-                var projectile = game.Projectiles.FirstOrDefault(p => p.X == x && p.Y == y);
-                // Проверяем танк
-                var tank = game.Tanks.FirstOrDefault(t => t.Hp > 0 && t.X == x && t.Y == y);
-                // Проверяем базу
-                var isBase = game.Base.X == x && game.Base.Y == y;
-                // Проверяем стену
-                var wall = game.Walls.FirstOrDefault(w => w.X == x && w.Y == y);
-
-                if (projectile is not null)
-                {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.Write(" ●  ");
-                }
-                else if (tank is not null)
-                {
-                    if (tank.Team == "player")
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        var symbol = tank.Direction switch
-                        {
-                            Direction.Up => "▲",
-                            Direction.Down => "▼",
-                            Direction.Left => "◄",
-                            _ => "►"
-                        };
-                        Console.Write($"[{symbol}] ");
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        var symbol = tank.Direction switch
-                        {
-                            Direction.Up => "▲",
-                            Direction.Down => "▼",
-                            Direction.Left => "◄",
-                            _ => "►"
-                        };
-                        Console.Write($"<{symbol}> ");
-                    }
-                }
-                else if (isBase)
-                {
-                    if (game.Base.Hp > 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.Write(" ⚑  ");
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.DarkRed;
-                        Console.Write(" ☠  ");
-                    }
-                }
-                else if (wall is not null)
-                {
-                    if (wall.IsConcrete)
-                    {
-                        Console.ForegroundColor = ConsoleColor.DarkGray;
-                        Console.Write("████");
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.DarkYellow;
-                        Console.Write("▓▓▓▓");
-                    }
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Black;
-                    Console.Write(" ·  ");
-                }
+                DrawCell(x, y, game);
             }
-
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine("│");
         }
-
-        // Нижняя граница сетки
         Console.WriteLine("  └────────────────────────────────────────┘");
         Console.ResetColor();
 
-        // Легенда
+        // Подсказки управления и статус
         Console.ForegroundColor = ConsoleColor.DarkCyan;
         Console.WriteLine("  Легенда: [▲] Игрок  <▲> Враг  ▓ Кирпич  █ Бетон  ⚑ Штаб  ● Снаряд");
-        Console.ResetColor();
-
-        // Панель управления
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.WriteLine("  Управление: [W/A/S/D/Стрелки] - Ход | [Пробел] - Огонь");
-        Console.WriteLine("              [F5] - Сохранить | [R] - Рестарт | [Q/Esc] - Выход");
+        Console.WriteLine("  Управление: [W/A/S/D/Стрелки] - Ход | [Пробел] - Огонь | [F5] - Save");
         Console.ResetColor();
-
-        // Информационная строка
         Console.ForegroundColor = ConsoleColor.White;
         Console.Write("  Событие: ");
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine($"{game.LastMessage,-40}");
         Console.ResetColor();
+    }
+
+    /// <summary>Отрисовка содержимого одной клетки (x, y).</summary>
+    private static void DrawCell(int x, int y, GameEngine game)
+    {
+        var shot = game.Projectiles.FirstOrDefault(p => p.X == x && p.Y == y);
+        if (shot is not null)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write(" ●  ");
+            return;
+        }
+
+        var tank = game.Tanks.FirstOrDefault(t => t.Hp > 0 && t.X == x && t.Y == y);
+        if (tank is not null)
+        {
+            var symbol = tank.Direction switch
+            {
+                Direction.Up => "▲",
+                Direction.Down => "▼",
+                Direction.Left => "◄",
+                _ => "►"
+            };
+            Console.ForegroundColor = tank.Team == "player" ? ConsoleColor.Green : ConsoleColor.Red;
+            Console.Write(tank.Team == "player" ? $"[{symbol}] " : $"<{symbol}> ");
+            return;
+        }
+
+        if (game.Base.X == x && game.Base.Y == y)
+        {
+            Console.ForegroundColor = game.Base.Hp > 0 ? ConsoleColor.Cyan : ConsoleColor.DarkRed;
+            Console.Write(game.Base.Hp > 0 ? " ⚑  " : " ☠  ");
+            return;
+        }
+
+        var wall = game.Walls.FirstOrDefault(w => w.X == x && w.Y == y);
+        if (wall is not null)
+        {
+            Console.ForegroundColor = wall.IsConcrete ? ConsoleColor.DarkGray : ConsoleColor.DarkYellow;
+            Console.Write(wall.IsConcrete ? "████" : "▓▓▓▓");
+            return;
+        }
+
+        Console.ForegroundColor = ConsoleColor.Black;
+        Console.Write(" ·  ");
     }
 }
