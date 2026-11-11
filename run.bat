@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 title Battle City — Console Arcade
-mode con: cols=62 lines=26
+mode con: cols=76 lines=28
 dotnet run --project BattleCity.csproj
 if errorlevel 1 (
     echo.
