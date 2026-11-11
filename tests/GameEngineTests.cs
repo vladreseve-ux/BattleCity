@@ -92,6 +92,33 @@ public sealed class GameEngineTests
         Assert.Equal(initialScore + 100, game.Score);
     }
 
+    /// <summary>Стрельба в упор: снаряд танка поражает объект в соседней клетке на первом же такте.</summary>
+    [Fact]
+    public void ShootPointBlankHitsAdjacentTarget()
+    {
+        var game = new GameEngine();
+        game.Walls.Clear();
+        // Кирпичная стена на (3, 3)
+        var wall = new Wall(3, 3, isConcrete: false, hp: 1);
+        game.Walls.Add(wall);
+
+        // Танк игрока на (2, 3) смотрит вправо прямо на стену
+        var player = game.Tanks.First(t => t.Team == "player");
+        player.X = 2;
+        player.Y = 3;
+        player.Direction = Direction.Right;
+
+        // Выстрел в упор
+        Assert.True(game.Fire(player));
+        Assert.Single(game.Projectiles);
+
+        // Первый такт — снаряд перемещается в (3, 3) и разрушает стену
+        game.Step();
+
+        Assert.Empty(game.Walls);
+        Assert.Empty(game.Projectiles);
+    }
+
     /// <summary>Искусственный интеллект врагов обновляет позиции и удерживает танки в границах поля.</summary>
     [Fact]
     public void EnemyTanksUpdateMovementAndStaysInBounds()
@@ -130,10 +157,24 @@ public sealed class GameEngineTests
         }
         finally
         {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    /// <summary>Загрузка повреждённого или пустого файла вызывает исключение InvalidDataException.</summary>
+    [Fact]
+    public void CorruptedSaveFileThrowsOrHandled()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+        try
+        {
+            File.WriteAllText(path, "{ corrupted json syntax");
+            var store = new JsonStateStore();
+            Assert.Throws<InvalidDataException>(() => store.Load(path));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
         }
     }
 }
